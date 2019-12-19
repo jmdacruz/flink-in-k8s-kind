@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka-ns
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: kafka-ns
+  labels:
+    k8s-app: kafka
+spec:
+  ports:
+  - port: 9092
+    name: server
+  clusterIP: None
+  selector:
+    k8s-app: kafka
+
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    k8s-app: kafka
+  name: kafka
+  namespace: kafka-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: kafka
+  serviceName: kafka-headless
+  template:
+    metadata:
+      labels:
+        k8s-app: kafka
+    spec:
+      containers:
+        - name: kafka
+          image: wurstmeister/kafka:2.12-2.3.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9092
+              protocol: TCP
+          env:
+            - name: HOSTNAME_COMMAND
+              value: "echo $(hostname).kafka-headless.kafka-ns.svc.cluster.local"
+            # - name: KAFKA_ADVERTISED_HOST_NAME
+            #   value: kafka-0.kafka-headless.kafka-ns.svc.cluster.local
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: zookeeper-0.zookeeper-headless.kafka-ns.svc.cluster.local:2181
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+  namespace: kafka-ns
+  labels:
+    k8s-app: zookeeper
+spec:
+  ports:
+  - port: 2181
+    name: server
+  clusterIP: None
+  selector:
+    k8s-app: zookeeper
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    k8s-app: zookeeper
+  name: zookeeper
+  namespace: kafka-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: zookeeper
+  serviceName: zookeeper-headless
+  template:
+    metadata:
+      labels:
+        k8s-app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: wurstmeister/zookeeper:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2181
+              protocol: TCP
+          # env:
+          #   - name: KAFKA_ADVERTISED_HOST_NAME
+          #     value: kafka-kfk-0.dxlstreaming-kafka-headless.funneldevdatabus.svc.cluster.local
+          #   - name: KAFKA_ZOOKEEPER_CONNECT
+          #     value: zookeeper-0.zookeeper-headless.kafka-ns.svc.cluster.local:2181
